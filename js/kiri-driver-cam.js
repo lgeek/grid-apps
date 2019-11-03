@@ -1217,8 +1217,46 @@ var gs_kiri_cam = exports;
                             poly.layer = depthData.layer;
                             polys.push(poly);
                         });
+
                         // set winding specified in output
-                        POLY.setWinding(polys, process.outputClockwise, true);
+                        // We handle 3 cases:
+                        // Tiny pockets in which we only machine one perimeter: cutting the outside
+                        // Outer contour: cutting the inside
+                        // Large pockets: machining the inside in the first slice, the outside in the second slice and so on
+                        // We need to nest polygons first to detect the type of pocket
+                        POLY.nest(polys, true, true);
+
+                        // Identify the outer contour
+                        var maxAreaPoly = -1;
+                        if (!process.camPocketOnly) {
+                          var maxArea = 0;
+                          polys.forEach(function(poly, polyIndex) {
+                            var area = poly.area();
+                            if (poly.area() > maxArea) {
+                              maxAreaPoly = polyIndex;
+                              maxArea = area;
+                            }
+                          });
+                          POLY.setWinding([polys[maxAreaPoly]], process.outputClockwise, false);
+                        }
+
+                        // Detect the type of pocket
+                        polys.forEach(function(poly, polyIndex) {
+                          // outer contour - already set
+                          if (polyIndex == maxAreaPoly) return;
+                          // this is a large pocket
+                          if (poly.hasInner() || (poly.parent && (maxAreaPoly == -1 || poly.parent != polys[maxAreaPoly]))) {
+                            if (sliceIndex % 2 == 0) {
+                                POLY.setWinding([poly], process.outputClockwise, false);
+                            } else {
+                                POLY.setWinding([poly], !process.outputClockwise, false);
+                            }
+                          } else {
+                            // small pocket
+                            POLY.setWinding([poly], !process.outputClockwise, false);
+                          }
+                        });
+
                         if (depthFirst) {
                             (slice.camMode === modes.ROUGH ? depthData.rough : depthData.finish).append(polys);
                         } else {

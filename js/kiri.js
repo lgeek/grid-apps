@@ -2646,7 +2646,7 @@ self.kiri.license = exports.LICENSE;
             camPocketOnly: UC.newBoolean("pocket only", onBooleanClick, {title:"constrain to\npart boundaries", modes:CAM}),
             // camEaseDown: UC.newBoolean("ease down", onBooleanClick, {title:"rough plunge cuts\nwill spiral down", modes:CAM}),
             camDepthFirst: UC.newBoolean("depth first", onBooleanClick, {title:"optimize pocket cuts\nwith depth priority", modes:CAM}),
-            outputClockwise: UC.newBoolean("clockwise", onBooleanClick, {title:"waterline milling direction", modes:CAM}),
+            outputClockwise: UC.newBoolean("climb milling", onBooleanClick, {title:"milling direction", modes:CAM}),
 
             camStock: UC.newGroup("stock", null, {modes:CAM}),
             camStockX: UC.newInput("width", {title:"width (x) in millimeters\n0 defaults to part size", convert:UC.toFloat, bound:UC.bound(0,9999), modes:CAM}),
