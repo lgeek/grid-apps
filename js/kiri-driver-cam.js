@@ -1254,7 +1254,7 @@ var gs_kiri_cam = exports;
                             if (sliceContour.includes(poly) || poly.isOpen()) return;
                             // this is a large pocket
                             if (poly.hasInner() || (poly.parent != null && !sliceContour.includes(poly.parent))) {
-                                if (sliceIndex % 2 == 0) {
+                                if (!depthFirst || sliceIndex % 2 == 0) {
                                     POLY.setWinding([poly], !process.outputClockwise, false);
                                 } else {
                                     POLY.setWinding([poly], process.outputClockwise, false);
@@ -1268,11 +1268,11 @@ var gs_kiri_cam = exports;
                         if (depthFirst) {
                             (slice.camMode === modes.ROUGH ? depthData.rough : depthData.finish).append(polys);
                         } else {
-                            printPoint = poly2polyEmit(polys, printPoint, function(poly, index, count) {
+                            printPoint = poly2polyDepthFirstEmit([polys], printPoint, function(poly, index, count) {
                                 poly.forEachPoint(function(point, pidx, points, offset) {
                                     camOut(point.clone(), offset !== 0);
                                 }, poly.isClosed(), index);
-                            });
+                            }, process.outputClockwise ? 1: -1, outerContours);
                             newLayer();
                         }
                     });
