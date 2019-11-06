@@ -851,13 +851,19 @@ var gs_kiri_print = exports;
      * to be more like outputOrderClosest() and have the option to account for
      * depth in determining distance
      */
-    function poly2polyEmit(array, startPoint, emitter) {
+    function _poly2polyEmit(array, startPoint, emitter, restrictedStart = 0, outerContours = []) {
         var mindist, dist, found, count = 0;
         for (;;) {
             found = null;
             mindist = Infinity;
             array.forEach(function(poly) {
                 if (poly.delete) return;
+                if ((restrictedStart == 1 && array[0].isClockwise()
+                    || restrictedStart == -1 && !array[0].isClockwise())
+                    && poly.parent != null && !outerContours.includes(poly.parent)) return;
+                if ((restrictedStart == -1 && array[0].isClockwise()
+                    || restrictedStart == 1 && !array[0].isClockwise())
+                    && poly.inner != null) return;
                 if (poly.isOpen()) {
                     const d2f = startPoint.distTo2D(poly.first());
                     const d2l = startPoint.distTo2D(poly.first());
@@ -881,9 +887,20 @@ var gs_kiri_print = exports;
             if (found) {
                 found.poly.delete = true;
                 startPoint = emitter(found.poly, found.index, ++count, startPoint) || found.point;
+                if (restrictedStart) {
+                    return startPoint;
+                }
             } else {
                 break;
             }
+        }
+        return startPoint;
+    }
+
+    function poly2polyEmit(array, startPoint, emitter, restrictedStart = 0, outerContours = []) {
+        startPoint = _poly2polyEmit(array, startPoint, emitter, restrictedStart, outerContours);
+        if (restrictedStart) {
+            startPoint = _poly2polyEmit(array, startPoint, emitter, 0);
         }
 
         // undo delete marks
@@ -900,7 +917,7 @@ var gs_kiri_print = exports;
      *
      * used for CAM depth first layer output
      */
-    function poly2polyDepthFirstEmit(array, startPoint, emitter, offset) {
+    function poly2polyDepthFirstEmit(array, startPoint, emitter, offset, restrictedStart = 0, outerContours = []) {
         var layers = [],
             pools;
 
@@ -971,7 +988,7 @@ var gs_kiri_print = exports;
             if (poolPoly.mark) return;
             poolPoly.mark = true;
             const polys = poolPoly.pool.slice().append(poolPoly);
-            startPoint = poly2polyEmit(polys, startPoint, emitter);
+            startPoint = poly2polyEmit(polys, startPoint, emitter, restrictedStart, outerContours);
             poolPoly.poolsDown.forEach(function(downPool) {
                 emitPool(downPool);
             });

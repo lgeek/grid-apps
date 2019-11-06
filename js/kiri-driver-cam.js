@@ -1163,8 +1163,12 @@ var gs_kiri_cam = exports;
             drill: []
         };
 
+        // Identify the outer contours
+        var outerContours = [];
+
         // todo first move into positon
         slices.forEach(function(slice, sliceIndex) {
+            var sliceContour = []
             depthData.layer++;
             isNewMode = slice.camMode != lastMode;
             lastMode = slice.camMode;
@@ -1226,35 +1230,39 @@ var gs_kiri_cam = exports;
                         // We need to nest polygons first to detect the type of pocket
                         POLY.nest(polys, true, true);
 
-                        // Identify the outer contour
-                        var maxAreaPoly = -1;
+                        // Identify the outer contour(s)
                         if (!process.camPocketOnly) {
-                          var maxArea = 0;
-                          polys.forEach(function(poly, polyIndex) {
-                            var area = poly.area();
-                            if (poly.area() > maxArea) {
-                              maxAreaPoly = polyIndex;
-                              maxArea = area;
-                            }
-                          });
-                          POLY.setWinding([polys[maxAreaPoly]], process.outputClockwise, false);
+                            polys.forEach(function(poly, polyIndex) {
+                                if (poly.parent == null) {
+                                    sliceContour.push(poly);
+                                }
+                            });
+                            POLY.setWinding(sliceContour, process.outputClockwise, false);
                         }
+                        sliceContour.forEach(function(poly) {
+                            if (poly.isOpen()) {
+                                // This is a layer with tabs, which are open polys
+                                // Handle it the same as a pocket only slice
+                                sliceContour = [];
+                            }
+                        });
+                        sliceContour.forEach(function(poly) {outerContours.push(poly);});
 
                         // Detect the type of pocket
                         polys.forEach(function(poly, polyIndex) {
-                          // outer contour - already set
-                          if (polyIndex == maxAreaPoly) return;
-                          // this is a large pocket
-                          if (poly.hasInner() || (poly.parent && (maxAreaPoly == -1 || poly.parent != polys[maxAreaPoly]))) {
-                            if (sliceIndex % 2 == 0) {
-                                POLY.setWinding([poly], process.outputClockwise, false);
+                            // outer contour - already set
+                            if (sliceContour.includes(poly) || poly.isOpen()) return;
+                            // this is a large pocket
+                            if (poly.hasInner() || (poly.parent != null && !sliceContour.includes(poly.parent))) {
+                                if (sliceIndex % 2 == 0) {
+                                    POLY.setWinding([poly], !process.outputClockwise, false);
+                                } else {
+                                    POLY.setWinding([poly], process.outputClockwise, false);
+                                }
                             } else {
+                                // small pocket
                                 POLY.setWinding([poly], !process.outputClockwise, false);
                             }
-                          } else {
-                            // small pocket
-                            POLY.setWinding([poly], !process.outputClockwise, false);
-                          }
                         });
 
                         if (depthFirst) {
@@ -1327,7 +1335,7 @@ var gs_kiri_cam = exports;
                     }
                     newLayer();
                     return last;
-                }, depthData.roughDiam * process.roughingOver * 1.01);
+                }, depthData.roughDiam * process.roughingOver * 1.01, process.outputClockwise ? 1: -1, outerContours);
             }
             // finishing depth first
             if (depthData.finish.length > 0) {
